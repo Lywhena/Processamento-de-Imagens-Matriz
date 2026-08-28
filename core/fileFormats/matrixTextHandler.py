@@ -7,12 +7,6 @@ import numpy as np
 from core.fileFormats.formatHandler import FormatHandler
 from core.imageModel import ImageModel
 
-# File layout:
-#   line 1: "width height channelCount"
-#   then one blank-line-separated block per channel (1 block if grayscale, 3 if RGB in R,G,B order)
-#   each block has `height` rows of `width` space-separated integers (0-255)
-
-
 class MatrixTextHandler(FormatHandler):
     def loadFile(self, filePath: Path) -> ImageModel:
         content = filePath.read_text(encoding="utf-8")

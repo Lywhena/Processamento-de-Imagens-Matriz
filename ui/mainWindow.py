@@ -6,6 +6,19 @@ from tkinter import filedialog, messagebox
 
 from core.fileFormats.formatRegistry import getHandlerForFile
 from core.imageModel import ImageModel
+from processing.geometryFilters import (
+    FlipHorizontalFilter,
+    FlipVerticalFilter,
+    RotateLeft90Filter,
+    RotateRight90Filter,
+)
+from processing.imageFilter import ImageFilter
+from processing.noiseReductionFilters import (
+    VALID_MASK_SIZES,
+    MeanFilter,
+    MedianFilter,
+    WeightedMeanFilter,
+)
 from ui.imageCanvas import ImageCanvas
 
 OPEN_IMAGE_FILE_TYPES = [("Image files", "*.png *.jpg *.jpeg"), ("All files", "*.*")]
@@ -19,6 +32,7 @@ class MainWindow(tk.Tk):
         self.title("Image Editor")
         self.currentImage: ImageModel | None = None
 
+        self._buildMenuBar()
         self._buildToolbar()
         self.imageCanvas = ImageCanvas(self)
         self.imageCanvas.pack(padx=10, pady=(0, 10))
@@ -31,6 +45,52 @@ class MainWindow(tk.Tk):
         tk.Button(toolbar, text="Open Image", command=self._onOpenImage).pack(side="left", padx=5)
         tk.Button(toolbar, text="Open Matrix", command=self._onOpenMatrix).pack(side="left", padx=5)
         tk.Button(toolbar, text="Save as Matrix", command=self._onSaveAsMatrix).pack(side="left", padx=5)
+
+    def _buildMenuBar(self) -> None:
+        menuBar = tk.Menu(self)
+        self.config(menu=menuBar)
+
+        transformMenu = tk.Menu(menuBar, tearoff=False)
+        transformMenu.add_command(
+            label="Rotacionar 90° à Esquerda",
+            command=lambda: self._applyFilter(RotateLeft90Filter()),
+        )
+        transformMenu.add_command(
+            label="Rotacionar 90° à Direita",
+            command=lambda: self._applyFilter(RotateRight90Filter()),
+        )
+        transformMenu.add_separator()
+        transformMenu.add_command(
+            label="Espelhar Verticalmente",
+            command=lambda: self._applyFilter(FlipVerticalFilter()),
+        )
+        transformMenu.add_command(
+            label="Espelhar Horizontalmente",
+            command=lambda: self._applyFilter(FlipHorizontalFilter()),
+        )
+        menuBar.add_cascade(label="Transformar", menu=transformMenu)
+
+        filtersMenu = tk.Menu(menuBar, tearoff=False)
+        filtersMenu.add_cascade(
+            label="Média", menu=self._buildMaskSizeMenu(filtersMenu, MeanFilter)
+        )
+        filtersMenu.add_cascade(
+            label="Mediana", menu=self._buildMaskSizeMenu(filtersMenu, MedianFilter)
+        )
+        filtersMenu.add_cascade(
+            label="Média Ponderada",
+            menu=self._buildMaskSizeMenu(filtersMenu, WeightedMeanFilter),
+        )
+        menuBar.add_cascade(label="Redução de Ruído", menu=filtersMenu)
+
+    def _buildMaskSizeMenu(self, parentMenu: tk.Menu, filterClass: type[ImageFilter]) -> tk.Menu:
+        maskSizeMenu = tk.Menu(parentMenu, tearoff=False)
+        for maskSize in VALID_MASK_SIZES:
+            maskSizeMenu.add_command(
+                label=f"{maskSize}x{maskSize}",
+                command=lambda size=maskSize: self._applyFilter(filterClass(size)),
+            )
+        return maskSizeMenu
 
     def _buildStatusBar(self) -> None:
         self.statusLabel = tk.Label(self, text="No image loaded", anchor="w")
@@ -66,6 +126,25 @@ class MainWindow(tk.Tk):
             return
 
         self.statusLabel.config(text=f"Saved matrix to {destinationPath.name}")
+
+    def _applyFilter(self, imageFilter: ImageFilter) -> None:
+        if self.currentImage is None:
+            messagebox.showwarning("No image", "Load an image before applying a filter.")
+            return
+
+        try:
+            filteredImage = imageFilter.apply(self.currentImage)
+        except Exception as error:
+            messagebox.showerror("Failed to apply filter", str(error))
+            return
+
+        self.currentImage = filteredImage
+        self.imageCanvas.showImage(filteredImage)
+        self.statusLabel.config(
+            text=f"Applied {type(imageFilter).__name__} — "
+            f"{filteredImage.width}x{filteredImage.height}, "
+            f"{'grayscale' if filteredImage.isGrayscale else 'RGB'}"
+        )
 
     def _loadFromPath(self, filePath: Path) -> None:
         try:
