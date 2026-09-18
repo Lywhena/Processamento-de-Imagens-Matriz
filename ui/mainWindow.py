@@ -6,6 +6,21 @@ from tkinter import filedialog, messagebox
 
 from core.fileFormats.formatRegistry import getHandlerForFile
 from core.imageModel import ImageModel
+from processing.edgeDetection import (
+    BoieCoxFilter,
+    CannyFilter,
+    FreiChenFilter,
+    GaborFilter,
+    GaussianGradientFilter,
+    HoughLinesFilter,
+    KirschFilter,
+    LaplacianFilter,
+    LaplacianOfGaussianFilter,
+    PrewittFilter,
+    RobertsFilter,
+    ScharrFilter,
+    SobelFilter,
+)
 from processing.geometryFilters import (
     FlipHorizontalFilter,
     FlipVerticalFilter,
@@ -20,6 +35,23 @@ from processing.noiseReductionFilters import (
     WeightedMeanFilter,
 )
 from ui.imageCanvas import ImageCanvas
+
+MANUAL_EDGE_FILTERS = (
+    ("c) Sobel", SobelFilter),
+    ("k) LoG (Laplaciano da Gaussiana)", LaplacianOfGaussianFilter),
+)
+LIBRARY_EDGE_FILTERS = (
+    ("a) Roberts", RobertsFilter),
+    ("b) Prewitt", PrewittFilter),
+    ("d) Kirsch", KirschFilter),
+    ("e) Frei-Chen", FreiChenFilter),
+    ("f) Laplaciano", LaplacianFilter),
+    ("g) Gaussiano", GaussianGradientFilter),
+    ("h) Canny", CannyFilter),
+    ("i) Boie-Cox", BoieCoxFilter),
+    ("j) Scharr", ScharrFilter),
+    ("l) Gabor", GaborFilter),
+)
 
 OPEN_IMAGE_FILE_TYPES = [("Image files", "*.png *.jpg *.jpeg"), ("All files", "*.*")]
 OPEN_MATRIX_FILE_TYPES = [("Matrix files", "*.txt"), ("All files", "*.*")]
@@ -82,6 +114,37 @@ class MainWindow(tk.Tk):
             menu=self._buildMaskSizeMenu(filtersMenu, WeightedMeanFilter),
         )
         menuBar.add_cascade(label="Redução de Ruído", menu=filtersMenu)
+
+        menuBar.add_cascade(label="Detecção de Bordas", menu=self._buildEdgeDetectionMenu(menuBar))
+
+    def _buildEdgeDetectionMenu(self, menuBar: tk.Menu) -> tk.Menu:
+        self.invertEdges = tk.BooleanVar(master=self, value=True)
+
+        edgeMenu = tk.Menu(menuBar, tearoff=False)
+        edgeMenu.add_checkbutton(label="Bordas pretas sobre fundo branco", variable=self.invertEdges)
+        edgeMenu.add_separator()
+
+        manualMenu = tk.Menu(edgeMenu, tearoff=False)
+        self._addEdgeFilterCommands(manualMenu, MANUAL_EDGE_FILTERS)
+        manualMenu.add_command(
+            label="m) Transformada de Hough",
+            command=lambda: self._applyFilter(HoughLinesFilter()),
+        )
+        edgeMenu.add_cascade(label="Implementação Manual", menu=manualMenu)
+
+        libraryMenu = tk.Menu(edgeMenu, tearoff=False)
+        self._addEdgeFilterCommands(libraryMenu, LIBRARY_EDGE_FILTERS)
+        edgeMenu.add_cascade(label="OpenCV", menu=libraryMenu)
+        return edgeMenu
+
+    def _addEdgeFilterCommands(self, menu: tk.Menu, filters) -> None:
+        for label, filterClass in filters:
+            menu.add_command(
+                label=label,
+                command=lambda cls=filterClass: self._applyFilter(
+                    cls(invert=self.invertEdges.get())
+                ),
+            )
 
     def _buildMaskSizeMenu(self, parentMenu: tk.Menu, filterClass: type[ImageFilter]) -> tk.Menu:
         maskSizeMenu = tk.Menu(parentMenu, tearoff=False)
