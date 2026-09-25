@@ -4,7 +4,7 @@ import math
 
 from core.imageModel import ImageModel
 from processing.edgeDetection.edgeMapFilter import NEGLIGIBLE_RESPONSE, validateRatio
-from processing.edgeDetection.manual._manualOps import (
+from processing.edgeDetection.manual.manualOps import (
     convolveColumns,
     convolveRows,
     padReplicate,

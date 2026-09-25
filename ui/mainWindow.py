@@ -27,6 +27,11 @@ from processing.geometryFilters import (
     RotateLeft90Filter,
     RotateRight90Filter,
 )
+from processing.histogramEqualization import (
+    VALID_CLASS_COUNTS,
+    HistogramEqualizationFilter,
+    bandWidthFor,
+)
 from processing.imageFilter import ImageFilter
 from processing.noiseReductionFilters import (
     VALID_MASK_SIZES,
@@ -34,6 +39,7 @@ from processing.noiseReductionFilters import (
     MedianFilter,
     WeightedMeanFilter,
 )
+from ui.equalizationTableWindow import EqualizationTableWindow
 from ui.imageCanvas import ImageCanvas
 
 MANUAL_EDGE_FILTERS = (
@@ -116,6 +122,7 @@ class MainWindow(tk.Tk):
         menuBar.add_cascade(label="Redução de Ruído", menu=filtersMenu)
 
         menuBar.add_cascade(label="Detecção de Bordas", menu=self._buildEdgeDetectionMenu(menuBar))
+        menuBar.add_cascade(label="Histograma", menu=self._buildHistogramMenu(menuBar))
 
     def _buildEdgeDetectionMenu(self, menuBar: tk.Menu) -> tk.Menu:
         self.invertEdges = tk.BooleanVar(master=self, value=True)
@@ -145,6 +152,24 @@ class MainWindow(tk.Tk):
                     cls(invert=self.invertEdges.get())
                 ),
             )
+
+    def _buildHistogramMenu(self, menuBar: tk.Menu) -> tk.Menu:
+        self.showEqualizationTable = tk.BooleanVar(master=self, value=True)
+
+        histogramMenu = tk.Menu(menuBar, tearoff=False)
+        histogramMenu.add_checkbutton(
+            label="Mostrar tabela da equalização", variable=self.showEqualizationTable
+        )
+        histogramMenu.add_separator()
+
+        classCountMenu = tk.Menu(histogramMenu, tearoff=False)
+        for classCount in VALID_CLASS_COUNTS:
+            classCountMenu.add_command(
+                label=f"{classCount} classes (faixa de {bandWidthFor(classCount)} tons)",
+                command=lambda count=classCount: self._applyEqualization(count),
+            )
+        histogramMenu.add_cascade(label="Equalizar Histograma", menu=classCountMenu)
+        return histogramMenu
 
     def _buildMaskSizeMenu(self, parentMenu: tk.Menu, filterClass: type[ImageFilter]) -> tk.Menu:
         maskSizeMenu = tk.Menu(parentMenu, tearoff=False)
@@ -190,16 +215,21 @@ class MainWindow(tk.Tk):
 
         self.statusLabel.config(text=f"Saved matrix to {destinationPath.name}")
 
-    def _applyFilter(self, imageFilter: ImageFilter) -> None:
+    def _applyEqualization(self, classCount: int) -> None:
+        equalizationFilter = HistogramEqualizationFilter(classCount)
+        if self._applyFilter(equalizationFilter) and self.showEqualizationTable.get():
+            EqualizationTableWindow(self, equalizationFilter.classTable)
+
+    def _applyFilter(self, imageFilter: ImageFilter) -> bool:
         if self.currentImage is None:
             messagebox.showwarning("No image", "Load an image before applying a filter.")
-            return
+            return False
 
         try:
             filteredImage = imageFilter.apply(self.currentImage)
         except Exception as error:
             messagebox.showerror("Failed to apply filter", str(error))
-            return
+            return False
 
         self.currentImage = filteredImage
         self.imageCanvas.showImage(filteredImage)
@@ -208,6 +238,7 @@ class MainWindow(tk.Tk):
             f"{filteredImage.width}x{filteredImage.height}, "
             f"{'grayscale' if filteredImage.isGrayscale else 'RGB'}"
         )
+        return True
 
     def _loadFromPath(self, filePath: Path) -> None:
         try:

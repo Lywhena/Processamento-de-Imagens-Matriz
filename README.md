@@ -71,3 +71,27 @@ Menu **Detecção de Bordas**. A opção "Bordas pretas sobre fundo branco" inve
 | l | Gabor | `cv2.getGaborKernel` em 8 orientações, energia do par par/ímpar |
 
 Os métodos manuais rodam em Python puro e podem levar alguns segundos em imagens grandes.
+
+## Equalização de histograma
+
+Menu **Histograma → Equalizar Histograma**, escolhendo a quantidade de classes (2, 4, 8, 16, 32, 64 ou 128, como na tabela "Qtd Classes / Faixa de Bits" da planilha). Implementação manual em `processing/histogramEqualization.py`, em Python puro (sem `cv2.equalizeHist`). Imagens coloridas são convertidas para cinza com os mesmos pesos BT.601 da detecção de bordas. Com a opção "Mostrar tabela da equalização" marcada, abre uma janela com a tabela da planilha calculada para a imagem.
+
+Os 256 tons são divididos em L classes de mesma largura (Faixa = 256 / L) e a equalização é feita sobre o histograma dessas classes:
+
+| Coluna da planilha | Campo em `ClassTableRow` | Cálculo |
+|---|---|---|
+| Classes | `classNumber` | k = 1 … L |
+| Faixa Int Inicial / Final | `rangeStart` / `rangeEnd` | (k − 1) × Faixa até k × Faixa − 1 |
+| nk | `pixelCount` | quantidade de pixels com tom dentro da faixa |
+| pr(rk) | `probability` | nk / Σnk |
+| sk | `cumulativeProbability` | soma acumulada de pr(rk) |
+| rk(R) | `referenceLevel` | (k − 1) / (L − 1), em passos de FLA = 1 / (L − 1) |
+| new (sk) | `newClassNumber` | classe cujo rk(R) é o mais próximo de sk, isto é, sk × (L − 1) arredondado, + 1 |
+| Diferença | `difference` | new (sk) − Classes |
+| FxD | `shift` | Faixa × Diferença |
+
+Cada pixel recebe o deslocamento da sua classe: **Novo Pixel = Pixel + FxD**. Ele muda de faixa, mas mantém a posição dentro dela. Exemplo da planilha: 130 está na classe 5 (128–159), new (sk) = 7, Diferença = 2, FxD = 32 × 2 = 64, novo pixel = 194.
+
+A planilha trunca pr(rk) em 3 casas e acumula o passo arredondado 0,143, por isso mostra sk = 0,997 e rk(R) = 1,001 na última classe. O programa usa os valores exatos (os dois terminam em 1) e, em caso de empate, arredonda para cima, como o `ARRED` do Excel. Com os dados da planilha a coluna new (sk) sai idêntica: 1, 3, 5, 6, 7, 8, 8, 8.
+
+A imagem `core/images/teste equalização planilha.png` (128 × 128 = 16384 pixels) tem exatamente os nk da planilha: equalizando com 8 classes, a tabela sai igual à do professor.

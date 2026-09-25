@@ -6,7 +6,7 @@ import numpy as np
 
 from core.imageModel import ImageModel
 from processing.edgeDetection.edgeMapFilter import validateRatio
-from processing.edgeDetection.manual._manualOps import maxValue, padReplicate, toGrayscale
+from processing.edgeDetection.manual.manualOps import maxValue, padReplicate, toGrayscale
 from processing.edgeDetection.manual.sobelFilter import sobelGradients
 from processing.imageFilter import ImageFilter
 

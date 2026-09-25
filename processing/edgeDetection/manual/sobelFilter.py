@@ -4,7 +4,7 @@ import math
 
 from core.imageModel import ImageModel
 from processing.edgeDetection.edgeMapFilter import EdgeMapFilter
-from processing.edgeDetection.manual._manualOps import padReplicate, renderEdgeMap, toGrayscale
+from processing.edgeDetection.manual.manualOps import padReplicate, renderEdgeMap, toGrayscale
 
 
 def sobelGradients(
